@@ -2,8 +2,8 @@
 Contributors: effyteva
 Tags: סליקת אשראי, אשראי, סליקה, חיוב באשראי, אופיסגיא, סאמיט, אופיס, אופיס גיא, WooCommerce, Payment, Gateway, Credit Cards, Shopping Cart, OfficeGuy, SUMIT, OfficeGuy Commerce, Israeli clearing, Extension, Subscriptions, Recurring Billing, Membership
 Requires at least: 4.6
-Tested up to: 6.4
-Stable tag: 3.2.7
+Tested up to: 6.8
+Stable tag: 3.2.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -51,6 +51,10 @@ function CustomItemFields($Item, $Product, $UnitPrice, $OrderItem, $Order) {
 add_filter('sumit_item_fields', 'CustomItemFields');
 
 == Changelog ===
+= 3.2.8 =
+* Fix for sending email to customer following redirect payment.
+* Updated WordPress 6.8 support.
+
 = 3.2.7 =
 * Bit payments will now respect email sending setting.
 

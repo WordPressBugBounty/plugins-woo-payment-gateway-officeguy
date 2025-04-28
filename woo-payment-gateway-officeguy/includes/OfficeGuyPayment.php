@@ -27,7 +27,7 @@ class OfficeGuyPayment
         $Request['DraftDocument'] = $Gateway->settings['draftdocument'] != 'no' ? 'true' : 'false';
         $Request['SendDocumentByEmail'] = $Gateway->settings['emaildocument'] == 'yes' && !in_array('subscription', $ItemMethods) ? 'true' : 'false';
         $Request['UpdateCustomerByEmail'] = $Gateway->settings['emaildocument'] == 'yes' && in_array('subscription', $ItemMethods) ? 'true' : 'false';
-        $Request['UpdateCustomerOnSuccess'] = $Gateway->settings['emaildocument'] == 'yes' && in_array('subscription', $ItemMethods) ? 'true' : 'false'; // BeginRedirect
+        $Request['UpdateCustomerOnSuccess'] = $Gateway->settings['emaildocument'] == 'yes' ? 'true' : 'false'; // BeginRedirect
         if ($Gateway->settings['emaildocument'] == 'yes') // BeginRedirect
             $Request['SendUpdateByEmailAddress'] = $Order->get_billing_email();
         $Request['DocumentDescription'] = __('Order number', 'officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note());
