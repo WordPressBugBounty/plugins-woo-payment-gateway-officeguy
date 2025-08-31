@@ -56,6 +56,8 @@ class OfficeGuyStock
             if (empty($ExternalIdentifier))
             {
                 $Product = get_page_by_title($StockItem['Name'], OBJECT, 'product');
+                if ($Product == null)
+                    $Product = get_page_by_title($StockItem['Name'], OBJECT, 'product_variation');
                 if ($Product != null)
                     $ExternalIdentifier = $Product->ID;
             }
