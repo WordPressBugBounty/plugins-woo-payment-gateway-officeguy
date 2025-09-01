@@ -1,9 +1,9 @@
-=== WooCommerce Payment Gateway - SUMIT ===
+=== SUMIT Payment Gateway for WooCommerce ===
 Contributors: effyteva
 Tags: סליקת אשראי, אשראי, סליקה, חיוב באשראי, אופיסגיא, סאמיט, אופיס, אופיס גיא, WooCommerce, Payment, Gateway, Credit Cards, Shopping Cart, OfficeGuy, SUMIT, OfficeGuy Commerce, Israeli clearing, Extension, Subscriptions, Recurring Billing, Membership
 Requires at least: 4.6
 Tested up to: 6.8
-Stable tag: 3.2.9
+Stable tag: 3.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -51,6 +51,9 @@ function CustomItemFields($Item, $Product, $UnitPrice, $OrderItem, $Order) {
 add_filter('sumit_item_fields', 'CustomItemFields');
 
 == Changelog ===
+= 3.3.0 =
+* Rename plugin according to updated WooCommerce guidelines.
+
 = 3.2.9 =
 * Added support for stock sync for products with variations (without specifying external identifiers)
 

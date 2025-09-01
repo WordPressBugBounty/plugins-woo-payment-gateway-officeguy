@@ -1,10 +1,10 @@
 <?php
 
 /**
- * Plugin Name: WooCommerce Payment Gateway - SUMIT
+ * Plugin Name: SUMIT Payment Gateway for WooCommerce
  * Plugin URI: https://help.sumit.co.il/he/articles/5830000
  * Description: Accept all major credit cards directly on your WooCommerce site in a seamless and secure checkout environment using SUMIT credit card clearing and invoicing.
- * Version: 3.2.9
+ * Version: 3.3.0
  * Author: SUMIT
  * Author URI: https://www.sumit.co.il
  * Text Domain: officeguy
