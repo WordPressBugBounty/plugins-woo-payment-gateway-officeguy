@@ -661,6 +661,9 @@ msgstr "תרומה באמצעות SUMIT"
 msgid "Only available for non-profit organizations."
 msgstr "אפשרות זו ניתנת לשימוש עבור עמותות בלבד."
 
+msgid "Tokenization method"
+msgstr "שיטת בדיקת אמצעי תשלום"
+
 #~ msgid "WooCommerce Payment Gateway - SUMIT"
 #~ msgstr "סליקה באמצעות SUMIT"
 

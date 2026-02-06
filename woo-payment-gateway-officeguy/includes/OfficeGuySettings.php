@@ -33,6 +33,8 @@ class OfficeGuySettings
             $Gateway->settings['support_tokens'] = 'no';
         if (empty($Gateway->settings['authorizeonly']))
             $Gateway->settings['authorizeonly'] = 'no';
+        if (empty($Gateway->settings['tokenparam']))
+            $Gateway->settings['tokenparam'] = '5';
     }
 
 
@@ -104,6 +106,14 @@ class OfficeGuySettings
                 'type' => 'checkbox',
                 'label' => __('Allows customer to store their credit card details as secure tokens for future orders', 'officeguy'),
                 'default' => 'no'
+            ),
+            'tokenparam' => array(
+                'title' => __('Tokenization method', 'officeguy'),
+                'type' => 'select',
+                'options' => array(
+                    '5' => 'J5',
+                    '2' => 'J2'
+                )
             ),
 
             'installmentssupport' => array(

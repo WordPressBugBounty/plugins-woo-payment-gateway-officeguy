@@ -4,7 +4,7 @@ class OfficeGuyTokens
     public static function GetTokenRequest($Gateway)
     {
         $Request = array(
-            'ParamJ' => 5,
+            'ParamJ' => $Gateway->settings['tokenparam'],
             'Amount' => 1,
             'Credentials' => OfficeGuyPayment::GetCredentials($Gateway)
         );
