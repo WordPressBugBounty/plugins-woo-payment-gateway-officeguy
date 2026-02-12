@@ -405,7 +405,7 @@ function officeguy_woocommerce_gateway()
                     OfficeGuyPayment::CreateOrderDocument($Gateway, $Order, $OrderCustomer, $Response['Data']['DocumentID']);
                 }
 
-                wp_redirect($this->get_return_url($order));
+                wp_redirect($this->get_return_url($Order));
             }
         }
         
