@@ -425,25 +425,23 @@ class OfficeGuyPayment
             {
                 // No response or unexpected response
                 $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage']);
+                $Order->update_status('failed');
+                $Order->save();
                 if ($IsWooCommerceSubscriptionPayment)
-                {
-                    $Order->update_status('failed');
-                    $Order->save();
                     return false;
-                }
-                wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
+                else
+                    wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
             }
             else
             { // if ($Response['Data']['Payment']['ValidPayment'] == false)
                 // Decline
                 $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
+                $Order->update_status('failed');
+                $Order->save();
                 if ($IsWooCommerceSubscriptionPayment)
-                {
-                    $Order->update_status('failed');
-                    $Order->save();
                     return false;
-                }
-                wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
+                else
+                    wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
             }
         }
     }
