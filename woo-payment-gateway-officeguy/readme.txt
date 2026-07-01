@@ -3,7 +3,7 @@ Contributors: effyteva
 Tags: סליקת אשראי, אשראי, סליקה, חיוב באשראי, אופיסגיא, סאמיט, אופיס, אופיס גיא, WooCommerce, Payment, Gateway, Credit Cards, Shopping Cart, OfficeGuy, SUMIT, OfficeGuy Commerce, Israeli clearing, Extension, Subscriptions, Recurring Billing, Membership
 Requires at least: 4.6
 Tested up to: 6.8
-Stable tag: 3.3.3
+Stable tag: 3.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -51,6 +51,9 @@ function CustomItemFields($Item, $Product, $UnitPrice, $OrderItem, $Order) {
 add_filter('sumit_item_fields', 'CustomItemFields');
 
 == Changelog ===
+= 3.3.4 =
+* Improved Bit payment flow on Android/iPhone devices.
+
 = 3.3.3 =
 * Order status fix (failed payment will now update order as failed)
 

@@ -35,6 +35,16 @@ class OfficeGuyAPI
             
         $URL = OfficeGuyAPI::GetURL($Path, $Environment);
 
+        $Headers = array(
+            'Content-Type' => 'application/json',
+            'Content-Language' => get_locale(),
+            'X-OG-Client' => 'WooCommerce',
+            'X-OG-ClientIP' => $SendClientIP ? $_SERVER['REMOTE_ADDR'] : null
+        );
+
+        if (isset($_SERVER['HTTP_USER_AGENT']))
+            $Headers['User-Agent'] = sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT']));
+
         $RequestLog = json_decode(json_encode($Request, JSON_PRETTY_PRINT));
         if (isset($RequestLog->PaymentMethod))
         {
@@ -53,12 +63,7 @@ class OfficeGuyAPI
             'redirection' => 5,
             'httpversion' => '1.0',
             'blocking' => true,
-            'headers' => array(
-                'Content-Type' => 'application/json',
-                'Content-Language' => get_locale(),
-                'X-OG-Client' => 'WooCommerce',
-                'X-OG-ClientIP' => $SendClientIP ? $_SERVER['REMOTE_ADDR'] : null
-            ),
+            'headers' => $Headers,
             'cookies' => array(),
             'ssl_verify' => false
         ));
