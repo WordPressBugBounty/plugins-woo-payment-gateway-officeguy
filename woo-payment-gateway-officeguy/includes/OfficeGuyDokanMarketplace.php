@@ -1,4 +1,6 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
 
 class OfficeGuyDokanMarketplace
 {
@@ -25,7 +27,7 @@ class OfficeGuyDokanMarketplace
         {
 ?>
             <div class="error">
-                <p><?php echo 'SUMIT error: ' . $OfficeGuyValidCredentialsMsg; ?></p>
+                <p><?php echo esc_html('SUMIT error: ' . $OfficeGuyValidCredentialsMsg); ?></p>
             </div>
         <?php
         }
@@ -54,18 +56,23 @@ class OfficeGuyDokanMarketplace
 
     public static function SaveOfficeGuyUserAPIKeyFields($UserID)
     {
-        if (empty($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'update-user_' . $UserID))
+        if (empty($_POST['_wpnonce']) || !is_string($_POST['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_wpnonce'])), 'update-user_' . $UserID))
             return;
 
         if (!current_user_can('edit_user', $UserID))
             return false;
 
-        update_user_meta($UserID, 'OfficeGuyCompanyID', $_POST['officeguycompanyid']);
-        update_user_meta($UserID, 'OfficeGuyAPIKey', $_POST['officeguyapikey']);
+        if (!isset($_POST['officeguycompanyid'], $_POST['officeguyapikey']) || !is_string($_POST['officeguycompanyid']) || !is_string($_POST['officeguyapikey']))
+            return;
 
-        if (!empty($_POST['officeguycompanyid']) && !empty($_POST['officeguyapikey']))
+        $CompanyID = sanitize_text_field(wp_unslash($_POST['officeguycompanyid']));
+        $APIKey = sanitize_text_field(wp_unslash($_POST['officeguyapikey']));
+        update_user_meta($UserID, 'OfficeGuyCompanyID', $CompanyID);
+        update_user_meta($UserID, 'OfficeGuyAPIKey', $APIKey);
+
+        if (!empty($CompanyID) && !empty($APIKey))
         {
-            $Response = OfficeGuyAPI::CheckCredentials($_POST['officeguycompanyid'], $_POST['officeguyapikey']);
+            $Response = OfficeGuyAPI::CheckCredentials($CompanyID, $APIKey);
             update_user_meta($UserID, 'OfficeGuyValidCredentials', $Response);
         }
         else

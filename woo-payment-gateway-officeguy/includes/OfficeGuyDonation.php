@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
+
 class OfficeGuyDonation
 {
     public static function CartContainsDonation()
@@ -41,8 +44,8 @@ class OfficeGuyDonation
         woocommerce_wp_checkbox(
             array(
                 'id' => 'OfficeGuyDonation',
-                'label' => __('SUMIT Donation', 'officeguy'),
-                'description' => __('Only available for non-profit organizations.', 'officeguy'),
+                'label' => __('SUMIT Donation', 'woo-payment-gateway-officeguy'),
+                'description' => __('Only available for non-profit organizations.', 'woo-payment-gateway-officeguy'),
                 'value'         => $Value,
                 'desc_tip'    => 'true'
             )
@@ -54,6 +57,11 @@ class OfficeGuyDonation
 
     public static function SaveProductFields($PostID)
     {
+        if (!isset($_POST['woocommerce_meta_nonce']) || !is_string($_POST['woocommerce_meta_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['woocommerce_meta_nonce'])), 'woocommerce_save_data'))
+            return;
+        if (!current_user_can('edit_post', $PostID))
+            return;
+
         update_post_meta($PostID, 'OfficeGuyDonation', isset($_POST['OfficeGuyDonation']) ? 'yes' : 'no');
     }
 

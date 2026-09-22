@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
+
 class OfficeGuyPayment
 {
     private static function GetOrderRequest($Gateway, $Order, $ItemMethods, $PaymentsCount, $IsSubscriptionPayment)
@@ -30,7 +33,7 @@ class OfficeGuyPayment
         $Request['UpdateCustomerOnSuccess'] = $Gateway->settings['emaildocument'] == 'yes' ? 'true' : 'false'; // BeginRedirect
         if ($Gateway->settings['emaildocument'] == 'yes') // BeginRedirect
             $Request['SendUpdateByEmailAddress'] = $Order->get_billing_email();
-        $Request['DocumentDescription'] = __('Order number', 'officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note());
+        $Request['DocumentDescription'] = __('Order number', 'woo-payment-gateway-officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note());
         $Request['Payments_Count'] = $PaymentsCount;
         $Request['MaximumPayments'] = OfficeGuyPayment::GetMaximumPayments($Gateway, round($Order->get_total()));
         $Request['DocumentLanguage'] = OfficeGuyPayment::GetOrderLanguage($Gateway);
@@ -82,6 +85,8 @@ class OfficeGuyPayment
                 //$Token = WC_Payment_Tokens::get($PaymentTokens[0]);
 
                 //$Token = WC_Payment_Tokens::get_customer_default_token($Order->get_customer_id());
+                if (!OfficeGuyPayment::IsValidToken($Token, $Gateway, $Order->get_customer_id()))
+                    return array(null, null);
                 $Request["PaymentMethod"] = OfficeGuyPayment::GetOrderPaymentMethodFromToken($Token);
             }
             else
@@ -91,14 +96,11 @@ class OfficeGuyPayment
                 {
                     $TokenID = wc_clean($TokenID);
                     $Token = WC_Payment_Tokens::get($TokenID);
+                    if (!OfficeGuyPayment::IsValidToken($Token, $Gateway, get_current_user_id()))
+                        return array(null, null);
                 }
                 if ($Token != null)
-                {
-                    if ($Token->get_user_id() !== get_current_user_id())
-                        return;
-
                     $Request["PaymentMethod"] = OfficeGuyPayment::GetOrderPaymentMethodFromToken($Token);
-                }
                 else
                 {
                     if ($Gateway->settings['pci'] == 'yes')
@@ -111,17 +113,30 @@ class OfficeGuyPayment
         return array($Request, $Token);
     }
 
+    private static function IsValidToken($Token, $Gateway, $UserID)
+    {
+        return $UserID > 0 && $Token instanceof WC_Payment_Token_CC
+            && $Token->get_gateway_id() === $Gateway->id
+            && (int)$Token->get_user_id() === (int)$UserID;
+    }
+
     public static function ValidateOrderFields($Gateway)
     {
         // Check for saving payment info without having or creating an account
         if (OfficeGuyRequestHelpers::Post('saveinfo') && !is_user_logged_in() && !OfficeGuyRequestHelpers::Post('createaccount'))
         {
-            wc_add_notice(__('Sorry, you need to create an account in order for us to save your payment information.', 'officeguy'), $notice_type = 'error');
+            wc_add_notice(__('Sorry, you need to create an account in order for us to save your payment information.', 'woo-payment-gateway-officeguy'), $notice_type = 'error');
             return false;
         }
 
         if (OfficeGuyRequestHelpers::Post('wc-' . $Gateway->id . '-payment-token') && OfficeGuyRequestHelpers::Post('wc-' . $Gateway->id . '-payment-token') !== 'new')
         {
+            $Token = WC_Payment_Tokens::get(wc_clean(OfficeGuyRequestHelpers::Post('wc-' . $Gateway->id . '-payment-token')));
+            if (!OfficeGuyPayment::IsValidToken($Token, $Gateway, get_current_user_id()))
+            {
+                wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy'), 'error');
+                return false;
+            }
         }
         else
         {
@@ -130,7 +145,7 @@ class OfficeGuyPayment
                 $CardToken = OfficeGuyRequestHelpers::Post('og-token');
                 if (empty($CardToken))
                 {
-                    wc_add_notice(__('Card number is invalid.', 'officeguy'), $notice_type = 'error');
+                    wc_add_notice(__('Card number is invalid.', 'woo-payment-gateway-officeguy'), $notice_type = 'error');
                     return false;
                 }
             }
@@ -144,18 +159,18 @@ class OfficeGuyPayment
                 // Check card number
                 if (empty($CardNumber) || !ctype_digit($CardNumber))
                 {
-                    wc_add_notice(__('Card number is invalid.', 'officeguy'), $notice_type = 'error');
+                    wc_add_notice(__('Card number is invalid.', 'woo-payment-gateway-officeguy'), $notice_type = 'error');
                     return false;
                 }
 
                 if ($Gateway->settings['cvv'] == 'yes' && !ctype_digit($CVV))
                 { // Check security code
-                    wc_add_notice(__('Card security code is invalid (only digits are allowed).', 'officeguy'), $notice_type = 'error');
+                    wc_add_notice(__('Card security code is invalid (only digits are allowed).', 'woo-payment-gateway-officeguy'), $notice_type = 'error');
                     return false;
                 }
 
                 // Check expiration data
-                $CurrentYear = date('Y');
+                $CurrentYear = gmdate('Y');
 
                 if (
                     !ctype_digit($ExpirationMonth)
@@ -166,7 +181,7 @@ class OfficeGuyPayment
                     || $ExpirationYear > $CurrentYear + 20
                 )
                 {
-                    wc_add_notice(__('Card expiration date is invalid.', 'officeguy'), $notice_type = 'error');
+                    wc_add_notice(__('Card expiration date is invalid.', 'woo-payment-gateway-officeguy'), $notice_type = 'error');
                     return false;
                 }
             }
@@ -188,14 +203,15 @@ class OfficeGuyPayment
             'Language' => OfficeGuyPayment::GetOrderLanguage($Gateway),
             'Currency' => $Order->get_currency(),
             'Type' => '8',
-            'Description' => __('Order number', 'officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note())
+            'Description' => __('Order number', 'woo-payment-gateway-officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note())
         );
         $Request['OriginalDocumentID'] = $OriginalDocumentID;
         $Response = OfficeGuyAPI::Post($Request, '/accounting/documents/create/', $Gateway->settings['environment'], false);
-        if ($Response['Status'] == 0)
+        if (isset($Response['Status']) && in_array($Response['Status'], array(0, '0', 'Success'), true) && !empty($Response['Data']['DocumentID']))
         {
             // Success
-            $Remark = __('SUMIT order completed. Document ID: %s.', 'officeguy');
+            /* translators: %s: SUMIT document ID. */
+            $Remark = __('SUMIT order completed. Document ID: %s.', 'woo-payment-gateway-officeguy');
             $Remark = sprintf($Remark, $Response['Data']['DocumentID']);
             $Order->add_order_note($Remark);
             $Order->add_meta_data('OfficeGuyOrderDocumentID', $Response['Data']['DocumentID']);
@@ -205,7 +221,7 @@ class OfficeGuyPayment
         }
         else
         {
-            $Remark = __('Order creation failed.', 'officeguy') . ' - ' . $Response['UserErrorMessage'];
+            $Remark = __('Order creation failed.', 'woo-payment-gateway-officeguy') . ' - ' . ($Response['UserErrorMessage'] ?? __('Something went wrong.', 'woo-payment-gateway-officeguy'));
             $Order->add_order_note($Remark);
             return $Remark;
         }
@@ -223,6 +239,11 @@ class OfficeGuyPayment
                 {
                     $TokenID = wc_clean($TokenID);
                     $Token = WC_Payment_Tokens::get($TokenID);
+                    if (!OfficeGuyPayment::IsValidToken($Token, $Gateway, get_current_user_id()))
+                    {
+                        wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy'), 'error');
+                        return false;
+                    }
                 }
                 else
                 {
@@ -233,20 +254,20 @@ class OfficeGuyPayment
                         $Token = OfficeGuyTokens::GetTokenFromResponse($Gateway, $Response);
                         if (!$Token->save())
                         {
-                            wc_add_notice(__('Update payment method failed', 'officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
+                            wc_add_notice(__('Update payment method failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
                             return;
                         }
                     }
                     else if ($Response['Status'] != 0)
                     {
                         // No response or unexpected response
-                        wc_add_notice(__('Update payment method failed', 'officeguy') . ' - ' . serialize($Gateway->settings['pci']) . ' ' . $Response['UserErrorMessage'], $notice_type = 'error');
+                        wc_add_notice(__('Update payment method failed', 'woo-payment-gateway-officeguy') . ' - ' . serialize($Gateway->settings['pci']) . ' ' . $Response['UserErrorMessage'], $notice_type = 'error');
                         return;
                     }
                     else
                     {
                         // Decline
-                        wc_add_notice(__('Update payment method failed', 'officeguy') . ' - ' . $Response['Data']['ResultDescription'], $notice_type = 'error');
+                        wc_add_notice(__('Update payment method failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['ResultDescription'], $notice_type = 'error');
                         return;
                     }
                 }
@@ -274,7 +295,7 @@ class OfficeGuyPayment
                     );
                 }
                 else
-                    wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Remark, $notice_type = 'error');
+                    wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Remark, $notice_type = 'error');
                 return;
             }
         }
@@ -285,23 +306,24 @@ class OfficeGuyPayment
             $PaymentsCount = OfficeGuyRequestHelpers::Post('og-paymentscount');
             if ($PaymentsCount == '' || in_array('subscription', $ItemMethods))
                 $PaymentsCount = '1';
-            if (round($PaymentsCount) > 1)
+            $MaximumPayments = max(1, OfficeGuyPayment::GetMaximumPayments($Gateway, round($Order->get_total())));
+            if (!ctype_digit($PaymentsCount) || (int)$PaymentsCount < 1 || (float)$PaymentsCount > $MaximumPayments)
             {
-                $OrderValue = round($Order->get_total());
-                $MaximumPayments = OfficeGuyPayment::GetMaximumPayments($Gateway, $OrderValue);
-                if ($PaymentsCount > $MaximumPayments)
-                {
-                    $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . 'Invalid payments count');
-                    if ($IsWooCommerceSubscriptionPayment)
-                        return false;
-                    wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . 'Invalid payments count', $notice_type = 'error');
-                    return;
-                }
+                $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . 'Invalid payments count');
+                wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . 'Invalid payments count', $notice_type = 'error');
+                return false;
             }
         }
 
         $HasVendorInCart = OfficeGuyMultiVendor::HasVendorInCart();
         list($Request, $Token) = OfficeGuyPayment::GetOrderRequest($Gateway, $Order, $ItemMethods, $PaymentsCount, $IsWooCommerceSubscriptionPayment);
+        if ($Request === null)
+        {
+            $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy'));
+            if (!$IsWooCommerceSubscriptionPayment)
+                wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy'), 'error');
+            return false;
+        }
         do_action('og_payment_request_handle', $Order, $Request);
 
         $Response = '';
@@ -310,7 +332,11 @@ class OfficeGuyPayment
         else if (in_array('subscription', $ItemMethods))
             $Response = OfficeGuyAPI::Post($Request, '/billing/recurring/charge/', $Gateway->settings['environment'], !$IsWooCommerceSubscriptionPayment);
         else if ($Gateway->settings['pci'] == 'redirect')
+        {
+            $Request['ExternalIdentifier'] = $Order->get_order_key();
+            $Request['Language'] = OfficeGuyPayment::GetOrderLanguage($Gateway);
             $Response = OfficeGuyAPI::Post($Request, '/billing/payments/beginredirect/', $Gateway->settings['environment'], !$IsWooCommerceSubscriptionPayment);
+        }
         else
             $Response = OfficeGuyAPI::Post($Request, '/billing/payments/charge/', $Gateway->settings['environment'], !$IsWooCommerceSubscriptionPayment);
 
@@ -323,7 +349,8 @@ class OfficeGuyPayment
                     'redirect' => $Response['Data']['RedirectURL'],
                 );
             }
-            wc_add_notice(__('Something went wrong.', 'officeguy'), $notice_type = 'error');
+            wc_add_notice(__('Something went wrong.', 'woo-payment-gateway-officeguy'), $notice_type = 'error');
+            return array('result' => 'failure');
         }
         // if method is not redirect
         else
@@ -338,7 +365,8 @@ class OfficeGuyPayment
                     {
                         $ResponsePayment = $ResponseVendor['Payment'];
                         $ResponsePaymentMethod = $ResponsePayment['PaymentMethod'];
-                        $Remark = __('SUMIT payment completed. Auth Number: %s. Last digits: %s. Payment ID: %s. Document ID: %s. Customer ID: %s.', 'officeguy');
+                        /* translators: 1: payment authorization number, 2: last digits of the credit card, 3: SUMIT payment ID, 4: SUMIT document ID, 5: SUMIT customer ID. */
+                        $Remark = __('SUMIT payment completed. Auth Number: %1$s. Last digits: %2$s. Payment ID: %3$s. Document ID: %4$s. Customer ID: %5$s.', 'woo-payment-gateway-officeguy');
                         $Remark = sprintf($Remark, $ResponsePayment['AuthNumber'], $ResponsePaymentMethod['CreditCard_LastDigits'], $ResponsePayment['ID'], $Response['Data']['DocumentID'], $Response['Data']['CustomerID']);
                         $Order->add_order_note($Remark);
                         $Order->add_meta_data('OfficeGuyDocumentID', $ResponseVendor['DocumentID']);
@@ -352,7 +380,8 @@ class OfficeGuyPayment
                 {
                     $ResponsePayment = $Response['Data']['Payment'];
                     $ResponsePaymentMethod = $ResponsePayment['PaymentMethod'];
-                    $Remark = __('SUMIT payment completed. Auth Number: %s. Last digits: %s. Payment ID: %s. Document ID: %s. Customer ID: %s.', 'officeguy');
+                    /* translators: 1: payment authorization number, 2: last digits of the credit card, 3: SUMIT payment ID, 4: SUMIT document ID, 5: SUMIT customer ID. */
+                    $Remark = __('SUMIT payment completed. Auth Number: %1$s. Last digits: %2$s. Payment ID: %3$s. Document ID: %4$s. Customer ID: %5$s.', 'woo-payment-gateway-officeguy');
                     $Remark = sprintf($Remark, $ResponsePayment['AuthNumber'], $ResponsePaymentMethod['CreditCard_LastDigits'], $ResponsePayment['ID'], $Response['Data']['DocumentID'], $Response['Data']['CustomerID']);
                     $Order->add_order_note($Remark);
                     $Order->add_meta_data('OfficeGuyDocumentID', $Response['Data']['DocumentID']);
@@ -424,24 +453,24 @@ class OfficeGuyPayment
             else if ($Response['Status'] != 0)
             {
                 // No response or unexpected response
-                $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage']);
+                $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage']);
                 $Order->update_status('failed');
                 $Order->save();
                 if ($IsWooCommerceSubscriptionPayment)
                     return false;
                 else
-                    wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
+                    wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
             }
             else
             { // if ($Response['Data']['Payment']['ValidPayment'] == false)
                 // Decline
-                $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
+                $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
                 $Order->update_status('failed');
                 $Order->save();
                 if ($IsWooCommerceSubscriptionPayment)
                     return false;
                 else
-                    wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
+                    wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
             }
         }
     }
@@ -476,17 +505,21 @@ class OfficeGuyPayment
                 );
             }
             else
-                wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Remark, $notice_type = 'error');
+                wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Remark, $notice_type = 'error');
             return;
         }
 
         list($Request, $Token) = OfficeGuyPayment::GetOrderRequest($OfficeGuyGateway, $Order, $ItemMethods, 1, false);
+        if ($Request === null)
+            return false;
         $Request['RedirectURL'] = $Gateway->get_return_url($Order);
         $Request['CancelRedirectURL'] = WC()->cart->get_checkout_url();
         $Request['AutomaticallyRedirectToProviderPaymentPage'] = 'UpayBit';
-        $Request['IPNURL'] = $woocommerce->api_request_url('officeguybit_woocommerce_gateway') . '?orderid=' . $Order->get_id() . '&orderkey=' . $Order->get_order_key();
+        $Request['IPNURL'] = add_query_arg(array('orderid' => $Order->get_id(), 'orderkey' => $Order->get_order_key()), $woocommerce->api_request_url('officeguybit_woocommerce_gateway'));
         do_action('og_payment_request_handle', $Order, $Request);
 
+        $Request['ExternalIdentifier'] = $Order->get_order_key();
+        $Request['Language'] = OfficeGuyPayment::GetOrderLanguage($OfficeGuyGateway);
         $Response = OfficeGuyAPI::Post($Request, '/billing/payments/beginredirect/', $OfficeGuyGateway->settings['environment'], true);
         if ($Response['Status'] == 0 && isset($Response['Data']['RedirectURL']))
         {
@@ -498,15 +531,15 @@ class OfficeGuyPayment
         else if ($Response['Status'] != 0)
         {
             // No response or unexpected response
-            $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage']);
-            wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
+            $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage']);
+            wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
             return false;
         }
         else
         { // if ($Response['Data']['Payment']['ValidPayment'] == false)
             // Decline
-            $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
-            wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
+            $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
+            wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
             return false;
         }
     }
@@ -530,7 +563,7 @@ class OfficeGuyPayment
             $Request['Items'] = array();
             array_push($Request['Items'], array(
                 'Item' => array(
-                    'Name' => __('General credit', 'officeguy'),
+                    'Name' => __('General credit', 'woo-payment-gateway-officeguy'),
                     'SearchMode' => 'Automatic'
                 ),
                 'UnitPrice' => -round($Amount, 2),
@@ -545,7 +578,7 @@ class OfficeGuyPayment
         $Request['AuthoriseOnly'] = $Gateway->settings['testing'] != 'no' ? 'true' : 'false';
         $Request['DraftDocument'] = $Gateway->settings['draftdocument'] != 'no' ? 'true' : 'false';
         $Request['SendDocumentByEmail'] = $Gateway->settings['emaildocument'] == 'yes' ? 'true' : 'false';
-        $Request['DocumentDescription'] = __('Order number', 'officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note());
+        $Request['DocumentDescription'] = __('Order number', 'woo-payment-gateway-officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note());
         $Request['Payments_Count'] = $PaymentsCount;
         $Request['DocumentLanguage'] = OfficeGuyPayment::GetOrderLanguage($Gateway);
         $Request['MerchantNumber'] = $Gateway->settings['merchantnumber'];
@@ -561,7 +594,8 @@ class OfficeGuyPayment
             // Success    
             $ResponsePayment = $Response['Data']['Payment'];
             $ResponsePaymentMethod = $ResponsePayment['PaymentMethod'];
-            $Remark = __('SUMIT credit completed. Auth Number: %s. Last digits: %s. Payment ID: %s. Document ID: %s. Customer ID: %s.', 'officeguy');
+            /* translators: 1: payment authorization number, 2: last digits of the credit card, 3: SUMIT payment ID, 4: SUMIT document ID, 5: SUMIT customer ID. */
+            $Remark = __('SUMIT credit completed. Auth Number: %1$s. Last digits: %2$s. Payment ID: %3$s. Document ID: %4$s. Customer ID: %5$s.', 'woo-payment-gateway-officeguy');
             $Remark = sprintf($Remark, $ResponsePayment['AuthNumber'], $ResponsePaymentMethod['CreditCard_LastDigits'], $ResponsePayment['ID'], $Response['Data']['DocumentID'], $Response['Data']['CustomerID']);
             $Order->add_order_note($Remark);
             $Order->add_meta_data('OfficeGuyCreditDocumentID', $Response['Data']['DocumentID']);
@@ -574,15 +608,15 @@ class OfficeGuyPayment
         else if ($Response['Status'] != 0)
         {
             // No response or unexpected response
-            $Order->add_order_note(__('Credit failed', 'officeguy') . ' - ' . $Response['UserErrorMessage']);
-            wc_add_notice(__('Credit failed', 'officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
+            $Order->add_order_note(__('Credit failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage']);
+            wc_add_notice(__('Credit failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
             return false;
         }
         else
         { // if ($Response['Data']['Payment']['ValidPayment'] == false)
             // Decline
-            $Order->add_order_note(__('Credit failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
-            wc_add_notice(__('Credit failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
+            $Order->add_order_note(__('Credit failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
+            wc_add_notice(__('Credit failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
             return false;
         }
     }
@@ -623,7 +657,7 @@ class OfficeGuyPayment
         $Product = wc_get_product($ProductID);
         $DurationMonths = '0';
         $Recurrence = '0';
-        if ($Product->get_meta('OfficeGuySubscription') === 'yes')
+        if ($Product && $Product->get_meta('OfficeGuySubscription') === 'yes')
         {
             $DurationMonths = $Product->get_meta('_duration_in_months');
             $Recurrence = $Product->get_meta('_recurrences');
@@ -641,8 +675,8 @@ class OfficeGuyPayment
             'Duration_Days' => null,
             'Duration_Months' => $DurationMonths,
             'ExternalIdentifier' => $ExternalIdentifier,
-            'Name' => $Product->get_name(),
-            'SKU' => $Product->get_sku(),
+            'Name' => $Product ? $Product->get_name() : $OrderItem->get_name(),
+            'SKU' => $Product ? $Product->get_sku() : '',
             'SearchMode' => 'Automatic',
         );
         $Item = apply_filters('sumit_item_fields', $Item, $Product, $UnitPrice, $OrderItem, $Order);
@@ -726,9 +760,9 @@ class OfficeGuyPayment
         {
             $MissingAmountName = null;
             if ($MissingAmount < 0)
-                $MissingAmountName = __('General credit', 'officeguy');
+                $MissingAmountName = __('General credit', 'woo-payment-gateway-officeguy');
             else
-                $MissingAmountName = __('General', 'officeguy');
+                $MissingAmountName = __('General', 'woo-payment-gateway-officeguy');
             array_push($Items, array(
                 'Item' => array(
                     'Name' => $MissingAmountName,
@@ -758,8 +792,8 @@ class OfficeGuyPayment
 
             $ItemDetails = array(
                 'ExternalIdentifier' => $ExternalIdentifier,
-                'Name' => $Product->get_name(),
-                'SKU' => $Product->get_sku(),
+                'Name' => $Product ? $Product->get_name() : $OrderItem->get_name(),
+                'SKU' => $Product ? $Product->get_sku() : '',
                 'SearchMode' => 'Automatic'
             );
             $UnitPrice = round($Order->get_line_total($OrderItem, true, true) / $OrderItem['qty'], 2);
@@ -809,9 +843,9 @@ class OfficeGuyPayment
         {
             $MissingAmountName = null;
             if ($MissingAmount < 0)
-                $MissingAmountName = __('General credit', 'officeguy');
+                $MissingAmountName = __('General credit', 'woo-payment-gateway-officeguy');
             else
-                $MissingAmountName = __('General', 'officeguy');
+                $MissingAmountName = __('General', 'woo-payment-gateway-officeguy');
             array_push($Items, array(
                 'Item' => array(
                     'Name' => $MissingAmountName,
@@ -831,7 +865,7 @@ class OfficeGuyPayment
         if (!empty($Order->get_billing_company()) && $Order->get_billing_company() != '')
             $CustomerName = $Order->get_billing_company() . ' - ' . $CustomerName;
         if (empty($CustomerName) || $CustomerName == ' ')
-            $CustomerName = __('Guest', 'officeguy');
+            $CustomerName = __('Guest', 'woo-payment-gateway-officeguy');
 
         $VatRate = OfficeGuyPayment::GetOrderVatRate($Order);
 
@@ -969,14 +1003,11 @@ class OfficeGuyPayment
         $Gateway = GetOfficeGuyGateway();
         $Order = wc_get_order($OrderID);
         OfficeGuyAPI::WriteToLog('Order #' . $OrderID . ' CreateDocumentOnPaymentComplete', 'debug');
-        if (!empty($Order->get_meta('OfficeGuyDocumentCreation')))
+        if (!empty($Order->get_meta('OfficeGuyDocumentID')) || !empty($Order->get_meta('OfficeGuyDocumentCreation')))
         {
             OfficeGuyAPI::WriteToLog('Order #' . $OrderID . ' CreateDocumentOnPaymentComplete skipped (duplicate)', 'debug');
             return;
         }
-        $Order->add_meta_data('OfficeGuyDocumentCreation', "1");
-        $Order->save_meta_data();
-
         $PaymentMethod = $Order->get_payment_method();
         $PaymentDescription = 'WooCommerce';
         OfficeGuyAPI::WriteToLog('Order #' . $OrderID . ' CreateDocumentOnPaymentComplete: ' . $PaymentMethod, 'debug');
@@ -1012,7 +1043,7 @@ class OfficeGuyPayment
             'Customer' => OfficeGuyPayment::GetOrderCustomer($Gateway, $Order),
             'Language' => OfficeGuyPayment::GetOrderLanguage($Gateway),
             'Currency' => $Order->get_currency(),
-            'Description' => __('Order number', 'officeguy') . ': ' . $OrderID . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note()),
+            'Description' => __('Order number', 'woo-payment-gateway-officeguy') . ': ' . $OrderID . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note()),
             'Type' => '1'
         );
         if (OfficeGuyDonation::OrderContainsDonation($Order))
@@ -1024,33 +1055,68 @@ class OfficeGuyPayment
             );
         }
         $Request['Payments'] = array();
-        array_push($Request['Payments'], array(
-            'Details_Other' => array(
-                'Type' => 'WooCommerce',
-                'Description' => $PaymentDescription,
-                'DueDate' => '' . date('Y-m-d\TH:i:s', strtotime($Order->get_date_paid())) . ''
-            )
-        ));
+        if ($PaymentMethod == 'cod')
+        {
+            $Request['Payments'][] = array(
+                'Details_Cash' => new stdClass()
+            );
+        }
+        elseif ($PaymentMethod == 'bacs')
+        {
+            $Request['Payments'][] = array(
+                'Details_BankTransfer' => array(
+                    'DueDate' => gmdate('Y-m-d\TH:i:s', strtotime($Order->get_date_paid()))
+                )
+            );
+        }
+        elseif ($PaymentMethod == 'cheque')
+        {
+            $Request['Payments'][] = array(
+                'Details_Cheque' => array(
+                    'DueDate' => gmdate('Y-m-d\TH:i:s', strtotime($Order->get_date_paid()))
+                )
+            );
+        }
+        else
+        {
+            $Request['Payments'][] = array(
+                'Details_Other' => array(
+                    'Type' => 'WooCommerce',
+                    'Description' => $PaymentDescription,
+                    'DueDate' => gmdate('Y-m-d\TH:i:s', strtotime($Order->get_date_paid()))
+                )
+            );
+        }
 
+        $Order->update_meta_data('OfficeGuyDocumentCreation', '1');
+        $Order->save_meta_data();
         $Response = OfficeGuyAPI::Post($Request, '/accounting/documents/create/', $Gateway->settings['environment'], false);
 
         // Check response
-        if ($Response['Status'] == 0)
+        if (isset($Response['Status']) && in_array($Response['Status'], array(0, '0', 'Success'), true) && !empty($Response['Data']['DocumentID']))
         {
             // Success
-            $Remark = __('SUMIT document completed. Document ID: %s. Customer ID: %s.', 'officeguy');
-            $Remark = sprintf($Remark, $Response['Data']['DocumentID'], $Response['Data']['CustomerID']);
+            /* translators: 1: SUMIT document ID, 2: SUMIT customer ID. */
+            $Remark = __('SUMIT document completed. Document ID: %1$s. Customer ID: %2$s.', 'woo-payment-gateway-officeguy');
+            $Remark = sprintf($Remark, $Response['Data']['DocumentID'], $Response['Data']['CustomerID'] ?? '');
             $Order->add_order_note($Remark);
             $Order->add_meta_data('OfficeGuyDocumentID', $Response['Data']['DocumentID']);
-            $Order->add_meta_data('OfficeGuyCustomerID', $Response['Data']['CustomerID']);
+            $Order->add_meta_data('OfficeGuyCustomerID', $Response['Data']['CustomerID'] ?? null);
             $Order->save_meta_data();
             $Order->save();
         }
         else
         {
             // No response or unexpected response
-            $Order->add_order_note(__('Document creation failed', 'officeguy') . ' - ' . $Response['UserErrorMessage']);
-            wc_add_notice(__('Document creation failed', 'officeguy') . ' - ' . serialize($Gateway->settings['pci']) . ' ' . $Response['UserErrorMessage'], $notice_type = 'error');
+            // Only retry a confirmed rejection; a missing response may hide a created document.
+            if (isset($Response['Status']) && (is_int($Response['Status']) || is_string($Response['Status'])) && $Response['Status'] !== '' && !in_array($Response['Status'], array(0, '0', 'Success'), true))
+            {
+                $Order->delete_meta_data('OfficeGuyDocumentCreation');
+                $Order->save_meta_data();
+            }
+            $Remark = __('Document creation failed', 'woo-payment-gateway-officeguy') . ' - ' . ($Response['UserErrorMessage'] ?? __('Something went wrong.', 'woo-payment-gateway-officeguy'));
+            $Order->add_order_note($Remark);
+            wc_add_notice($Remark, 'error');
         }
     }
 
@@ -1072,7 +1138,10 @@ class OfficeGuyPayment
         $Gateway = GetOfficeGuyGateway();
         $Product = wc_get_product(get_the_ID());
         if (isset($Gateway->settings['buynowloop']) && $Gateway->settings['buynowloop'] == 'yes' && !$Product->is_type('variable'))
-            echo '<a href="' . wc_get_checkout_url() . (strpos(wc_get_checkout_url(), '?') !== false ? '&' : '?') . 'add-to-cart=' . get_the_ID() . '&quantity=1" class="button button-buynow">' . __('Buy Now', 'officeguy') . '</a>';
+        {
+            $BuyNowURL = add_query_arg(array('add-to-cart' => get_the_ID(), 'quantity' => 1), wc_get_checkout_url());
+            echo '<a href="' . esc_url($BuyNowURL) . '" class="button button-buynow">' . esc_html__('Buy Now', 'woo-payment-gateway-officeguy') . '</a>';
+        }
     }
 
     public static function ProductPageBuyNowButton()
@@ -1080,17 +1149,34 @@ class OfficeGuyPayment
         $Gateway = GetOfficeGuyGateway();
         if (isset($Gateway->settings['buynowitem']) && $Gateway->settings['buynowitem'] == 'yes')
         {
-            wp_enqueue_script('officeguy-front', PLUGIN_DIR . 'includes/js/officeguy.js', array('jquery'));
+            wp_enqueue_script('officeguy-front', PLUGIN_DIR . 'includes/js/officeguy.js', array('jquery'), '4.0.1', false);
             $Product = wc_get_product(get_the_ID());
-            $IsVariable = $Product->is_type('variable') ? 'true' : 'false';
-            echo '<a onclick="og_buy_now_url(' . $IsVariable . ',' . get_the_ID() . ',\'' . wc_get_checkout_url() . '\'); return false;" href="#" class="button button-buynow single_add_to_cart_button">' . __('Buy Now', 'officeguy') . '</a>';
+            $OnClick = 'og_buy_now_url(' . wp_json_encode($Product->is_type('variable')) . ',' . absint(get_the_ID()) . ',' . wp_json_encode(wc_get_checkout_url(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . '); return false;';
+            echo '<a onclick="' . esc_attr($OnClick) . '" href="#" class="button button-buynow single_add_to_cart_button">' . esc_html__('Buy Now', 'woo-payment-gateway-officeguy') . '</a>';
         }
+    }
+
+    public static function ValidatePayment($Order, $Response, $PaymentID)
+    {
+        if (!is_array($Response) || !isset($Response['Status']) || !in_array($Response['Status'], array(0, '0', 'Success'), true))
+            return false;
+        $Payment = isset($Response['Data']['Payment']) ? $Response['Data']['Payment'] : null;
+        if (!is_array($Payment) || !isset($Payment['ID'], $Payment['ValidPayment'], $Payment['ExternalIdentifier'], $Payment['Amount'], $Payment['CustomerID']))
+            return false;
+        if ($Payment['ValidPayment'] !== true || (string) $Payment['ID'] !== (string)$PaymentID)
+            return false;
+        // The reference must come from SUMIT, not from the notification or browser.
+        if (!is_string($Payment['ExternalIdentifier']) || $Order->get_order_key() === '' || !hash_equals($Order->get_order_key(), $Payment['ExternalIdentifier']))
+            return false;
+        if (!is_numeric($Payment['Amount']) || (float) $Payment['Amount'] <= 0 || (float) $Payment['Amount'] !== (float) $Order->get_total())
+            return false;
+        return true;
     }
 
     public static function ThankYou($OrderID)
     {
         $Order = wc_get_order($OrderID);
-        if ($Order->get_payment_method() != 'officeguy' && $Order->get_payment_method() != 'officeguybit')
+        if (!$Order || ($Order->get_payment_method() != 'officeguy' && $Order->get_payment_method() != 'officeguybit'))
             return;
         if ($Order->get_status() != "pending")
             return;
@@ -1109,29 +1195,35 @@ class OfficeGuyPayment
         if ($Response == null)
             return;
 
-        $OGDocumentID = OfficeGuyRequestHelpers::Get('OG-DocumentID');
+        if (!OfficeGuyPayment::ValidatePayment($Order, $Response, $OGPaymentID))
+            return;
+        $OGDocumentID = $Response['Data']['Payment']['DocumentID'];
 
         $ResponsePayment = $Response['Data']['Payment'];
         if ($ResponsePayment['ValidPayment'] != true)
         {
-            $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $ResponsePayment['StatusDescription']);
-            wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $ResponsePayment['StatusDescription'], $notice_type = 'error');
+            $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $ResponsePayment['StatusDescription']);
+            wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $ResponsePayment['StatusDescription'], $notice_type = 'error');
             $Order->update_status('failed');
         }
         else
         {
             $ResponsePaymentMethod = $ResponsePayment['PaymentMethod'];
-            $Remark = __('SUMIT payment completed. Auth Number: %s. Last digits: %s. Payment ID: %s. Document ID: %s. Customer ID: %s.', 'officeguy');
+            /* translators: 1: payment authorization number, 2: last digits of the credit card, 3: SUMIT payment ID, 4: SUMIT document ID, 5: SUMIT customer ID. */
+            $Remark = __('SUMIT payment completed. Auth Number: %1$s. Last digits: %2$s. Payment ID: %3$s. Document ID: %4$s. Customer ID: %5$s.', 'woo-payment-gateway-officeguy');
             $Remark = sprintf($Remark, $ResponsePayment['AuthNumber'], $ResponsePaymentMethod['CreditCard_LastDigits'], $ResponsePayment['ID'], $OGDocumentID, $ResponsePayment['CustomerID']);
             $Order->add_order_note($Remark);
-            $Order->payment_complete();
+            $Order->update_meta_data('OfficeGuyDocumentID', $OGDocumentID);
+            $Order->update_meta_data('OfficeGuyCustomerID', $ResponsePayment['CustomerID']);
+            $Order->save_meta_data();
+            $Order->payment_complete((string)$ResponsePayment['ID']);
 
             if ($Gateway->settings['createorderdocument'] == 'yes')
             {
                 $OrderCustomer = array(
-                    'ID' => $Response['Data']['CustomerID']
+                    'ID' => $ResponsePayment['CustomerID']
                 );
-                OfficeGuyPayment::CreateOrderDocument($Gateway, $Order, $OrderCustomer, $Response['Data']['DocumentID']);
+                OfficeGuyPayment::CreateOrderDocument($Gateway, $Order, $OrderCustomer, $OGDocumentID);
             }
         }
     }
@@ -1140,7 +1232,7 @@ class OfficeGuyPayment
     {
         global $theorder;
         if ($theorder->get_meta("OfficeGuyDocumentID") == null)
-            $Actions['officeguy_create_document'] = __('Create invoice/receipt', 'officeguy');
+            $Actions['officeguy_create_document'] = __('Create invoice/receipt', 'woo-payment-gateway-officeguy');
         return $Actions;
     }
 

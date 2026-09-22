@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
+
 class OfficeGuyTokens
 {
     public static function GetTokenRequest($Gateway)
@@ -54,17 +57,17 @@ class OfficeGuyTokens
                 );
             }
             else
-                wc_add_notice(__('Update payment method failed', 'officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
+                wc_add_notice(__('Update payment method failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
         }
         else if ($Response['Status'] != 0)
         {
             // No response or unexpected response
-            wc_add_notice(__('Update payment method failed', 'officeguy') . ' - ' . serialize($Gateway->settings['pci']) . ' ' . $Response['UserErrorMessage'], $notice_type = 'error');
+            wc_add_notice(__('Update payment method failed', 'woo-payment-gateway-officeguy') . ' - ' . serialize($Gateway->settings['pci']) . ' ' . $Response['UserErrorMessage'], $notice_type = 'error');
         }
         else
         {
             // Decline
-            wc_add_notice(__('Update payment method failed', 'officeguy') . ' - ' . $Response['Data']['ResultDescription'], $notice_type = 'error');
+            wc_add_notice(__('Update payment method failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['ResultDescription'], $notice_type = 'error');
         }
     }
 
@@ -91,7 +94,7 @@ class OfficeGuyTokens
 
     public static function AddCreditCardTypeLabel($Array)
     {
-        $Array['card'] = __('Credit card', 'officeguy');
+        $Array['card'] = __('Credit card', 'woo-payment-gateway-officeguy');
         return $Array;
     }
 }

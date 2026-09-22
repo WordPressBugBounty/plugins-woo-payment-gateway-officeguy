@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
+
 class OfficeGuyStock
 {
     public static function UpdateStock()
@@ -36,7 +39,7 @@ class OfficeGuyStock
             $Gateway->settings['stock_sync_freq'] = 'none';
             $Gateway->update_option('stock_sync_freq', $Gateway->settings['stock_sync_freq']);
             wp_clear_scheduled_hook('officeguy_cron');
-            OfficeGuyAPI::WriteToLog(__('Problem connecting to server at ', 'officeguy') . $URL . ' (' . $Response->get_error_message() . ')', 'error');
+            OfficeGuyAPI::WriteToLog(__('Problem connecting to server at ', 'woo-payment-gateway-officeguy') . $URL . ' (' . $Response->get_error_message() . ')', 'error');
             return null;
         }
 
@@ -55,11 +58,14 @@ class OfficeGuyStock
             $ExternalIdentifier = $StockItem['ExternalIdentifier'];
             if (empty($ExternalIdentifier))
             {
-                $Product = get_page_by_title($StockItem['Name'], OBJECT, 'product');
-                if ($Product == null)
-                    $Product = get_page_by_title($StockItem['Name'], OBJECT, 'product_variation');
-                if ($Product != null)
-                    $ExternalIdentifier = $Product->ID;
+                if (!isset($StockItem['Name']) || !is_string($StockItem['Name']) || trim($StockItem['Name']) === '')
+                    continue;
+
+                $Products = get_posts(array('title' => $StockItem['Name'], 'post_type' => 'product', 'post_status' => get_post_stati(), 'numberposts' => 1));
+                if (empty($Products))
+                    $Products = get_posts(array('title' => $StockItem['Name'], 'post_type' => 'product_variation', 'post_status' => get_post_stati(), 'numberposts' => 1));
+                if (!empty($Products))
+                    $ExternalIdentifier = $Products[0]->ID;
             }
 
             wc_update_product_stock($ExternalIdentifier, $StockItem['Stock']);
@@ -104,16 +110,19 @@ class OfficeGuyStock
     {
         $schedules['twelve_hours'] = array(
             'interval' => 43200,
-            'display' => __('Every 12 hours', 'officeguy')
+            'display' => __('Every 12 hours', 'woo-payment-gateway-officeguy')
         );
         return $schedules;
     }
 
     public static function RegisterDashboardWidget()
     {
+        if (!current_user_can('manage_woocommerce'))
+            return;
+
         wp_add_dashboard_widget('officeguy_dashboard_widget', 'SUMIT', 'OfficeGuyStock::RenderDashboardWidget');
 
-        if (isset($_POST['synchronize_officeguy']) && isset($_POST['officeguy_synchronize']) && wp_verify_nonce($_POST['officeguy_synchronize'], 'officeguy_nonce'))
+        if (isset($_POST['synchronize_officeguy']) && isset($_POST['officeguy_synchronize']) && is_string($_POST['officeguy_synchronize']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['officeguy_synchronize'])), 'officeguy_nonce'))
             OfficeGuyStock::InternalUpdateStock(true);
     }
 
@@ -121,10 +130,10 @@ class OfficeGuyStock
     { ?>
         <form method="post">
             <?php wp_nonce_field('officeguy_nonce', 'officeguy_synchronize'); ?>
-            <h3><?php _e('Manual Stock Synchronization', 'officeguy'); ?></h3>
-            <p><?php _e('Click the button below to manually sync stock now', 'officeguy'); ?></p>
+            <h3><?php esc_html_e('Manual Stock Synchronization', 'woo-payment-gateway-officeguy'); ?></h3>
+            <p><?php esc_html_e('Click the button below to manually sync stock now', 'woo-payment-gateway-officeguy'); ?></p>
 
-            <input type="submit" name="synchronize_officeguy" class="button button-primary" value="<?php _e('Synchronize Stock', 'officeguy'); ?>">
+            <input type="submit" name="synchronize_officeguy" class="button button-primary" value="<?php esc_attr_e('Synchronize Stock', 'woo-payment-gateway-officeguy'); ?>">
         </form>
         <?php
     }
@@ -135,17 +144,20 @@ class OfficeGuyStock
      */
     public static function DashboardSyncMessage()
     {
-        if (isset($_POST['synchronize_officeguy']) && isset($_POST['officeguy_synchronize']))
+        if (!current_user_can('manage_woocommerce'))
+            return;
+
+        if (isset($_POST['synchronize_officeguy']) && isset($_POST['officeguy_synchronize']) && is_string($_POST['officeguy_synchronize']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['officeguy_synchronize'])), 'officeguy_nonce'))
         { ?>
             <div class="notice-success notice">
-                <p><?php _e('Stock synced successfully!', 'officeguy'); ?></p>
+                <p><?php esc_html_e('Stock synced successfully!', 'woo-payment-gateway-officeguy'); ?></p>
             </div>
         <?php
         }
         elseif (isset($_POST['synchronize_officeguy']))
         { ?>
             <div class="error notice">
-                <p><?php _e('Something went wrong.', 'officeguy'); ?></p>
+                <p><?php esc_html_e('Something went wrong.', 'woo-payment-gateway-officeguy'); ?></p>
             </div>
 <?php
         }

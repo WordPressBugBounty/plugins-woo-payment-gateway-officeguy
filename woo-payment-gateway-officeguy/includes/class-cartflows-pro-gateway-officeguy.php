@@ -1,4 +1,6 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
 
 class Cartflows_Pro_Gateway_OfficeGuy
 {
@@ -35,7 +37,8 @@ class Cartflows_Pro_Gateway_OfficeGuy
             // Success    
             $ResponsePayment = $Response['Data']['Payment'];
             $ResponsePaymentMethod = $ResponsePayment['PaymentMethod'];
-            $Remark = __('SUMIT payment completed. Auth Number: %s. Last digits: %s. Payment ID: %s. Document ID: %s. Customer ID: %s.', 'officeguy');
+            /* translators: 1: payment authorization number, 2: last digits of the credit card, 3: SUMIT payment ID, 4: SUMIT document ID, 5: SUMIT customer ID. */
+            $Remark = __('SUMIT payment completed. Auth Number: %1$s. Last digits: %2$s. Payment ID: %3$s. Document ID: %4$s. Customer ID: %5$s.', 'woo-payment-gateway-officeguy');
             $Remark = sprintf($Remark, $ResponsePayment['AuthNumber'], $ResponsePaymentMethod['CreditCard_LastDigits'], $ResponsePayment['ID'], $Response['Data']['DocumentID'], $Response['Data']['CustomerID']);
             $Order->add_order_note($Remark);
             $Order->add_meta_data('OfficeGuyDocumentID', $Response['Data']['DocumentID']);
@@ -63,15 +66,15 @@ class Cartflows_Pro_Gateway_OfficeGuy
         else if ($Response['Status'] != 0)
         {
             // No response or unexpected response
-            $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage']);
-            wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
+            $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage']);
+            wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['UserErrorMessage'], $notice_type = 'error');
             return false;
         }
         else
         { // if ($Response['Data']['Payment']['ValidPayment'] == false)
             // Decline
-            $Order->add_order_note(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
-            wc_add_notice(__('Payment failed', 'officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
+            $Order->add_order_note(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription']);
+            wc_add_notice(__('Payment failed', 'woo-payment-gateway-officeguy') . ' - ' . $Response['Data']['Payment']['StatusDescription'], $notice_type = 'error');
             return false;
         }
     }
@@ -109,7 +112,7 @@ class Cartflows_Pro_Gateway_OfficeGuy
         $Request['DraftDocument'] = $Gateway->settings['draftdocument'] != 'no' ? 'true' : 'false';
         $Request['SendDocumentByEmail'] = $Gateway->settings['emaildocument'] == 'yes' ? 'true' : 'false';
         $Request['UpdateCustomerByEmail'] = 'false';
-        $Request['DocumentDescription'] = __('Order number', 'officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note());
+        $Request['DocumentDescription'] = __('Order number', 'woo-payment-gateway-officeguy') . ': ' . $Order->get_id() . (empty($Order->get_customer_note()) ? '' : "\r\n" . $Order->get_customer_note());
         $Request['DocumentLanguage'] = OfficeGuyPayment::GetOrderLanguage($Gateway);
         $Request['MerchantNumber'] = $Gateway->settings['merchantnumber'];
 

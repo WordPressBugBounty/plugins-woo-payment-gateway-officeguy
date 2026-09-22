@@ -1,4 +1,7 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
+
 class OfficeGuySubscriptions
 {
     /**
@@ -94,8 +97,8 @@ class OfficeGuySubscriptions
         $ProductTypeOptions['officeguy'] = array(
             'id' => 'OfficeGuySubscription',
             'wrapper_class' => null,
-            'label' => __('SUMIT Recurring', 'officeguy'),
-            'description' => __('Recurring product/service.', 'officeguy'),
+            'label' => __('SUMIT Recurring', 'woo-payment-gateway-officeguy'),
+            'description' => __('Recurring product/service.', 'woo-payment-gateway-officeguy'),
             'default' => $Value
         );
         return $ProductTypeOptions;
@@ -104,7 +107,7 @@ class OfficeGuySubscriptions
     public static function AddProductSettingsTab($Tabs)
     {
         $Tabs['officeguy'] = array(
-            'label'    => __('SUMIT Recurring', 'officeguy'),
+            'label'    => __('SUMIT Recurring', 'woo-payment-gateway-officeguy'),
             'target' => 'officeguy_options',
             'class' => array('show_if_og_subscription')
         );
@@ -120,9 +123,9 @@ class OfficeGuySubscriptions
 
         woocommerce_wp_select(array(
             'id' => '_duration_in_months',
-            'label' => __('Interval in months', 'officeguy'),
+            'label' => __('Interval in months', 'woo-payment-gateway-officeguy'),
             'desc_tip' => 'true',
-            'description' => __('Interval in months affects the duration between each recurring payment. The interval is usually set for monthly charges, but can be used for other intervals as well', 'officeguy'),
+            'description' => __('Interval in months affects the duration between each recurring payment. The interval is usually set for monthly charges, but can be used for other intervals as well', 'woo-payment-gateway-officeguy'),
             'options' => array(
                 1 => OfficeGuySubscriptions::GetMonthsString(1),
                 2 => OfficeGuySubscriptions::GetMonthsString(2),
@@ -142,9 +145,9 @@ class OfficeGuySubscriptions
 
         woocommerce_wp_text_input(array(
             'id' => '_recurrences',
-            'label' => __('Number of recurrences', 'officeguy'),
+            'label' => __('Number of recurrences', 'woo-payment-gateway-officeguy'),
             'desc_tip' => 'true',
-            'description' => __('Leave empty for non-expiring recurring payment', 'officeguy'),
+            'description' => __('Leave empty for non-expiring recurring payment', 'woo-payment-gateway-officeguy'),
             'type' => 'number'
         ));
         echo '</div>';
@@ -153,16 +156,21 @@ class OfficeGuySubscriptions
 
     public static function SaveProductFields($PostID)
     {
+        if (!isset($_POST['woocommerce_meta_nonce']) || !is_string($_POST['woocommerce_meta_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['woocommerce_meta_nonce'])), 'woocommerce_save_data'))
+            return;
+        if (!current_user_can('edit_post', $PostID))
+            return;
+
         // Save subscription checkbox
         update_post_meta($PostID, 'OfficeGuySubscription', isset($_POST['OfficeGuySubscription']) ? 'yes' : 'no');
 
         // Save duration in months
         if (isset($_POST['_duration_in_months']))
-            update_post_meta($PostID, '_duration_in_months', sanitize_text_field($_POST['_duration_in_months']));
+            update_post_meta($PostID, '_duration_in_months', sanitize_text_field(wp_unslash($_POST['_duration_in_months'])));
 
         // Save recurrences
         if (isset($_POST['_recurrences']))
-            update_post_meta($PostID, '_recurrences', sanitize_text_field($_POST['_recurrences']));
+            update_post_meta($PostID, '_recurrences', sanitize_text_field(wp_unslash($_POST['_recurrences'])));
     }
 
     public static function ProductSettingsTabScript()
@@ -186,7 +194,7 @@ class OfficeGuySubscriptions
 
                 $('input#_virtual').on("change", function() {
                     if ($('input#OfficeGuySubscription:checked').length > 0 && $(this).is(":visible") && !$(this).prop("checked")) {
-                        alert('<?php _e('Subscription product should also be set as a virtual product.', 'officeguy'); ?>');
+                        alert(<?php echo wp_json_encode(__('Subscription product should also be set as a virtual product.', 'woo-payment-gateway-officeguy'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
                         $('input#OfficeGuySubscription:checked').prop("checked", false);
                         $('.show_if_og_subscription').hide();
                     }
@@ -199,23 +207,23 @@ class OfficeGuySubscriptions
     public static function GetMonthsString($Months)
     {
         if ($Months == 1)
-            return __('Month', 'officeguy');
+            return __('Month', 'woo-payment-gateway-officeguy');
         elseif ($Months == 2)
-            return __('2 months', 'officeguy');
+            return __('2 months', 'woo-payment-gateway-officeguy');
         elseif ($Months == 6)
-            return __('6 months', 'officeguy');
+            return __('6 months', 'woo-payment-gateway-officeguy');
         elseif ($Months % 12 == 0)
         {
             $Years = $Months / 12;
             if ($Years == 1)
-                return __('Year', 'officeguy');
+                return __('Year', 'woo-payment-gateway-officeguy');
             elseif ($Years == 2)
-                return __('2 Years', 'officeguy');
+                return __('2 Years', 'woo-payment-gateway-officeguy');
             else
-                return $Years . __('Years', 'officeguy');
+                return $Years . __('Years', 'woo-payment-gateway-officeguy');
         }
         else
-            return $Months . ' ' . __('months', 'officeguy');
+            return $Months . ' ' . __('months', 'woo-payment-gateway-officeguy');
     }
 
     public static function GetProductPriceString($ProductID, $Price)
@@ -229,9 +237,9 @@ class OfficeGuySubscriptions
 
         $SubscriptionText = ' / ' . OfficeGuySubscriptions::GetMonthsString($Duration);
         if ($Subscription && $Recurrences)
-            $SubscriptionText .= ' ' . __('for ', 'officeguy') . OfficeGuySubscriptions::GetMonthsString(intval($Duration) * intval($Recurrences));
+            $SubscriptionText .= ' ' . __('for ', 'woo-payment-gateway-officeguy') . OfficeGuySubscriptions::GetMonthsString(intval($Duration) * intval($Recurrences));
 
-        return $Price . '<span class="og-subscription">' . $SubscriptionText . '</span>';
+        return $Price . '<span class="og-subscription">' . esc_html($SubscriptionText) . '</span>';
     }
 
     public static function ProductPagePriceString($Price, $Product)
@@ -256,9 +264,9 @@ class OfficeGuySubscriptions
 
         $SubscriptionText = ' / ' . OfficeGuySubscriptions::GetMonthsString($Duration);
         if ($Subscription && $Recurrences)
-            $SubscriptionText .= ' ' . __('for ', 'officeguy') . OfficeGuySubscriptions::GetMonthsString(intval($Duration) * intval($Recurrences));
+            $SubscriptionText .= ' ' . __('for ', 'woo-payment-gateway-officeguy') . OfficeGuySubscriptions::GetMonthsString(intval($Duration) * intval($Recurrences));
 
-        return $Subtotal . '<span class="og-subscription">' . $SubscriptionText . '</span>';
+        return $Subtotal . '<span class="og-subscription">' . esc_html($SubscriptionText) . '</span>';
     }
 
     public static function AdminOrderPageProduct($ItemID, $Product, $Order)
@@ -273,9 +281,9 @@ class OfficeGuySubscriptions
 
         $SubscriptionText = ' / ' . OfficeGuySubscriptions::GetMonthsString($Duration);
         if ($Subscription && $Recurrences)
-            $SubscriptionText .= ' ' . __('for ', 'officeguy') . OfficeGuySubscriptions::GetMonthsString(intval($Duration) * intval($Recurrences));
+            $SubscriptionText .= ' ' . __('for ', 'woo-payment-gateway-officeguy') . OfficeGuySubscriptions::GetMonthsString(intval($Duration) * intval($Recurrences));
 
-        echo '<span class="og-subscription">' . $SubscriptionText . '</span>';
+        echo '<span class="og-subscription">' . esc_html($SubscriptionText) . '</span>';
     }
 
     public static function AddAdminScripts($Hook) 
@@ -284,7 +292,7 @@ class OfficeGuySubscriptions
         if ($Hook == 'post-new.php' || $Hook == 'post.php') 
         {
             if ('product' === $post->post_type)
-                wp_enqueue_script('officeguy-front', PLUGIN_DIR . 'includes/js/officeguy.js', array('jquery'));
+                wp_enqueue_script('officeguy-front', PLUGIN_DIR . 'includes/js/officeguy.js', array('jquery'), '4.0.1', false);
         }
     }
 }

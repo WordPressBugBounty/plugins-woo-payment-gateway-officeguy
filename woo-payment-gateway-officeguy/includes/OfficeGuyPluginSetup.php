@@ -1,4 +1,6 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
 
 class OfficeGuyPluginSetup
 {
@@ -20,8 +22,12 @@ class OfficeGuyPluginSetup
 			return;
 
 		delete_option('officeguy_plugin_do_activation_redirect');
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Core display flag suppresses the redirect after bulk activation.
 		if (!isset($_GET['activate-multi']))
-			wp_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=officeguy'));
+		{
+			wp_safe_redirect(admin_url('admin.php?page=wc-settings&tab=checkout&section=officeguy'));
+			exit;
+		}
 	}
 
 	public static function ActionLinks($actions, $plugin_file, $plugin_data, $context)
@@ -30,7 +36,7 @@ class OfficeGuyPluginSetup
 			'settings' => sprintf(
 				'<a href="%s">%s</a>',
 				esc_url(admin_url('admin.php?page=wc-settings&tab=checkout&section=officeguy')),
-				esc_html__('Settings', 'officeguy')
+				esc_html__('Settings', 'woo-payment-gateway-officeguy')
 			)
 		);
 

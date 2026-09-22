@@ -1,4 +1,6 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
 
 class OfficeGuyWCFMMarketplace
 {
@@ -13,7 +15,7 @@ class OfficeGuyWCFMMarketplace
         {
             //חסום זמנית עד שניתן יהיה להראות שגיאה מיד בשמירה
 ?>
-            <!-- <div class="wcfm-message wcfm-error" tabindex="-1" style="display: block;"><?php echo 'SUMIT error: ' . $OfficeGuyValidCredentialsMsg; ?></div> -->
+            <!-- <div class="wcfm-message wcfm-error" tabindex="-1" style="display: block;"><?php echo esc_html('SUMIT error: ' . $OfficeGuyValidCredentialsMsg); ?></div> -->
 <?php
         }
 
@@ -22,16 +24,22 @@ class OfficeGuyWCFMMarketplace
         $APIKey = isset($VendorData['OfficeGuyAPIKey']) ? esc_attr($VendorData['OfficeGuyAPIKey']) : '';
         if (isset($GeneralFields['store_name']))
         {
-            $GeneralFields['officeguycompanyid'] = array('label' => __('SUMIT Company ID', 'wc-frontend-manager'), 'type' => 'text', 'class' => 'wcfm-text wcfm_ele', 'label_class' => 'wcfm_title wcfm_ele', 'value' => $CompanyID);
-            $GeneralFields['officeguyapikey'] = array('label' => __('SUMIT API Key', 'wc-frontend-manager'), 'type' => 'text', 'class' => 'wcfm-text wcfm_ele', 'label_class' => 'wcfm_title wcfm_ele', 'value' => $APIKey);
+            $GeneralFields['officeguycompanyid'] = array('label' => __('SUMIT Company ID', 'woo-payment-gateway-officeguy'), 'type' => 'text', 'class' => 'wcfm-text wcfm_ele', 'label_class' => 'wcfm_title wcfm_ele', 'value' => $CompanyID);
+            $GeneralFields['officeguyapikey'] = array('label' => __('SUMIT API Key', 'woo-payment-gateway-officeguy'), 'type' => 'text', 'class' => 'wcfm-text wcfm_ele', 'label_class' => 'wcfm_title wcfm_ele', 'value' => $APIKey);
         }
         return $GeneralFields;
     }
 
     public static function SaveOfficeGuyAPIFields($UserID, $WCFMSettingsForm)
     {
+        if (!isset($_POST['wcfm_settings_form']) || !is_string($_POST['wcfm_settings_form']))
+            return;
+
         $WCFMSettingsFormDataNew = array();
-        parse_str($_POST['wcfm_settings_form'], $WCFMSettingsFormDataNew);
+        parse_str(wp_unslash($_POST['wcfm_settings_form']), $WCFMSettingsFormDataNew); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Decode the form first; sanitize the individual fields below.
+
+        if (!isset($WCFMSettingsFormDataNew['wcfm_nonce']) || !is_string($WCFMSettingsFormDataNew['wcfm_nonce']) || !wp_verify_nonce(sanitize_text_field($WCFMSettingsFormDataNew['wcfm_nonce']), 'wcfm_settings'))
+            return;
 
         // $wcfmmp_profile_settings = get_the_author_meta('wcfmmp_profile_settings', $UserID);
 
@@ -39,10 +47,10 @@ class OfficeGuyWCFMMarketplace
         //     return;
 
         $WCFMSettingsForm_data_storetype = array();
-        if (isset($WCFMSettingsFormDataNew['officeguycompanyid']) && !empty($WCFMSettingsFormDataNew['officeguycompanyid']))
-            $WCFMSettingsForm_data_storetype['OfficeGuyCompanyID'] = $WCFMSettingsFormDataNew['officeguycompanyid'];
-        if (isset($WCFMSettingsFormDataNew['officeguyapikey']) && !empty($WCFMSettingsFormDataNew['officeguyapikey']))
-            $WCFMSettingsForm_data_storetype['OfficeGuyAPIKey'] = $WCFMSettingsFormDataNew['officeguyapikey'];
+        if (isset($WCFMSettingsFormDataNew['officeguycompanyid']) && is_string($WCFMSettingsFormDataNew['officeguycompanyid']) && !empty($WCFMSettingsFormDataNew['officeguycompanyid']))
+            $WCFMSettingsForm_data_storetype['OfficeGuyCompanyID'] = sanitize_text_field($WCFMSettingsFormDataNew['officeguycompanyid']);
+        if (isset($WCFMSettingsFormDataNew['officeguyapikey']) && is_string($WCFMSettingsFormDataNew['officeguyapikey']) && !empty($WCFMSettingsFormDataNew['officeguyapikey']))
+            $WCFMSettingsForm_data_storetype['OfficeGuyAPIKey'] = sanitize_text_field($WCFMSettingsFormDataNew['officeguyapikey']);
 
         $WCFMSettingsForm = array_merge($WCFMSettingsForm, $WCFMSettingsForm_data_storetype);
         update_user_meta($UserID, 'wcfmmp_profile_settings', $WCFMSettingsForm);

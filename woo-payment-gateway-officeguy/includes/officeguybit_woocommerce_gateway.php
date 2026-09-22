@@ -1,4 +1,6 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
 
 /**
  * The WC_OfficeGuy Class
@@ -17,7 +19,7 @@ function officeguybit_woocommerce_gateway()
             $this->id = 'officeguybit';
             $this->init_settings();
             $this->method_title = 'SUMIT bit';
-            $this->method_description = __('Receive bit payments using SUMIT.', 'officeguy');
+            $this->method_description = __('Receive bit payments using SUMIT.', 'woo-payment-gateway-officeguy');
             $this->icon = PLUGIN_DIR . 'includes/images/bit.png';
             $this->has_fields = true;
             if (!empty($this->settings['title']))
@@ -34,14 +36,13 @@ function officeguybit_woocommerce_gateway()
 
             if (!OfficeGuyPayment::IsCurrencySupported())
                 $this->enabled = 'no';
-            OfficeGuyStock::CreateSchedules($this);
         }
    
         function admin_options()
         { ?>
-            <h3><?php echo __('SUMIT Payments - bit', 'officeguy') ?></h3>
+            <h3><?php echo esc_html__('SUMIT Payments - bit', 'woo-payment-gateway-officeguy') ?></h3>
             <p>
-                <?php echo __('The SUMIT BitPayments Gateway is a simple and powerful checkout solution.<br />The plugin adds an option to pay using bit on the checkout page for Upay customers, and processes the transaction on SUMIT.<br />Please follow the <a target="_blank" href="https://help.sumit.co.il/he/articles/5830000">installation instructions</a> to complete the plugin setup.', 'officeguy') ?>
+                <?php echo wp_kses_post(__('The SUMIT BitPayments Gateway is a simple and powerful checkout solution.<br />The plugin adds an option to pay using bit on the checkout page for Upay customers, and processes the transaction on SUMIT.<br />Please follow the <a target="_blank" href="https://help.sumit.co.il/he/articles/5830000">installation instructions</a> to complete the plugin setup.', 'woo-payment-gateway-officeguy')); ?>
             </p>
             <table class="form-table">
                 <?php $this->generate_settings_html(); ?>
@@ -53,7 +54,7 @@ function officeguybit_woocommerce_gateway()
         {
             if ($this->settings['description'])
             { ?>
-                <p><?php echo $this->settings['description']; ?></p>
+                <p><?php echo wp_kses_post($this->settings['description']); ?></p>
 <?php
             }
         }
@@ -66,7 +67,7 @@ function officeguybit_woocommerce_gateway()
 
         function ReceiptPage($Order)
         {
-            echo '<p>' . __('Thank you for your order.', 'officeguy') . '</p>';
+            echo '<p>' . esc_html__('Thank you for your order.', 'woo-payment-gateway-officeguy') . '</p>';
         }
 
         public static function AddPaymentGateway($Methods)
@@ -79,11 +80,10 @@ function officeguybit_woocommerce_gateway()
         {
             $OrderID = OfficeGuyRequestHelpers::Get("orderid");
             $OrderKey = OfficeGuyRequestHelpers::Get("orderkey");
-            $DocumentID = OfficeGuyRequestHelpers::Post("documentid");
-            $CustomerID = OfficeGuyRequestHelpers::Post("customerid");
+            $PaymentID = OfficeGuyRequestHelpers::Post("paymentid");
 
             $Order = wc_get_order($OrderID);
-            if ($Order->get_order_key() != $OrderKey)
+            if (!$Order || $Order->get_payment_method() !== 'officeguybit' || $Order->get_order_key() !== $OrderKey)
             {
                 OfficeGuyAPI::WriteToLog("Received IPN with incorrect key " . $OrderID, "debug");
                 return;
@@ -94,14 +94,30 @@ function officeguybit_woocommerce_gateway()
                 return;
             }
 
+            if (!is_string($PaymentID) || !ctype_digit($PaymentID) || $PaymentID === '0')
+                return;
+            $Gateway = GetOfficeGuyGateway();
+            $Response = OfficeGuyAPI::Post(array(
+                'Credentials' => OfficeGuyPayment::GetCredentials($Gateway),
+                'PaymentID' => $PaymentID,
+            ), '/billing/payments/get/', $Gateway->settings['environment'], false);
+            if (!OfficeGuyPayment::ValidatePayment($Order, $Response, $PaymentID))
+            {
+                status_header(503);
+                return;
+            }
+            $DocumentID = $Response['Data']['Payment']['DocumentID'];
+            $CustomerID = $Response['Data']['Payment']['CustomerID'];
+
             OfficeGuyAPI::WriteToLog("Processing IPN for order " . $OrderID, "debug");
-            $Remark = __('SUMIT order completed. Document ID: %s.', 'officeguy');
+            /* translators: %s: SUMIT document ID. */
+            $Remark = __('SUMIT order completed. Document ID: %s.', 'woo-payment-gateway-officeguy');
             $Remark = sprintf($Remark, $DocumentID);
 
             $Order->add_order_note($Remark);
             $Order->add_meta_data('OfficeGuyDocumentID', $DocumentID);
             $Order->add_meta_data('OfficeGuyCustomerID', $CustomerID);
-            $Order->payment_complete();
+            $Order->payment_complete($PaymentID);
             $Order->save_meta_data();
             $Order->save();
         }

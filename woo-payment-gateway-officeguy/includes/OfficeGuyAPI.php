@@ -1,10 +1,13 @@
 <?php
+if (!defined('ABSPATH'))
+    exit;
+
 class OfficeGuyAPI
 {
     public static function GetURL($Path, $Environment)
     {
         if ($Environment == "dev")
-            return 'http://' . $Environment . '.api.sumit.co.il' . $Path;
+            return 'https://' . $Environment . '.api.sumit.co.il' . $Path;
         else
             return 'https://api.sumit.co.il' . $Path;
     }
@@ -18,14 +21,17 @@ class OfficeGuyAPI
         {
             if (function_exists('wc_add_notice'))
             {
-                wc_add_notice(__('Problem connecting to server at ', 'officeguy') . OfficeGuyAPI::GetURL($Path, $Environment) . ' (' . $Response->get_error_message() . ')', $notice_type = 'error');
+                wc_add_notice(__('Problem connecting to server at ', 'woo-payment-gateway-officeguy') . OfficeGuyAPI::GetURL($Path, $Environment) . ' (' . $Response->get_error_message() . ')', $notice_type = 'error');
             }
             return null;
         }
 
+        if (wp_remote_retrieve_response_code($Response) !== 200)
+            return null;
+
         $Body = wp_remote_retrieve_body($Response);
         $Body = json_decode($Body, true);
-        return $Body;
+        return is_array($Body) ? $Body : null;
     }
 
     public static function PostRaw($Request, $Path, $Environment, $SendClientIP)
@@ -39,7 +45,7 @@ class OfficeGuyAPI
             'Content-Type' => 'application/json',
             'Content-Language' => get_locale(),
             'X-OG-Client' => 'WooCommerce',
-            'X-OG-ClientIP' => $SendClientIP ? $_SERVER['REMOTE_ADDR'] : null
+            'X-OG-ClientIP' => $SendClientIP && isset($_SERVER['REMOTE_ADDR']) && is_string($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : null
         );
 
         if (isset($_SERVER['HTTP_USER_AGENT']))
@@ -60,12 +66,12 @@ class OfficeGuyAPI
         $Response = wp_remote_post($URL, array(
             'body' => json_encode($Request),
             'timeout' => 180,
-            'redirection' => 5,
+            'redirection' => 0,
             'httpversion' => '1.0',
             'blocking' => true,
             'headers' => $Headers,
             'cookies' => array(),
-            'ssl_verify' => false
+            'sslverify' => true
         ));
 
         OfficeGuyAPI::WriteToLog('Response: ' . $URL . "\r\n" . json_encode($Response), 'debug');
